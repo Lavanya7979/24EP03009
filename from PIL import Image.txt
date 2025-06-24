@@ -1,0 +1,76 @@
+from PIL import Image
+
+# Function to convert data to binary
+def data_to_binary(data):
+    return ''.join([format(ord(i), '08b') for i in data])
+
+# Function to hide data in image
+def hide_data(image_path, secret_message, output_image_path):
+    img = Image.open(image_path)
+    binary_message = data_to_binary(secret_message) + '1111111111111110'  # Delimiter to mark end of message
+
+    data_index = 0
+    img_data = img.getdata()
+    new_data = []
+
+    for pixel in img_data:
+        if data_index < len(binary_message):
+            r = pixel[0]
+            g = pixel[1]
+            b = pixel[2]
+
+            # Modify the LSB of red pixel
+            r = r & ~1 | int(binary_message[data_index])
+            data_index += 1
+
+            if data_index < len(binary_message):
+                g = g & ~1 | int(binary_message[data_index])
+                data_index += 1
+
+            if data_index < len(binary_message):
+                b = b & ~1 | int(binary_message[data_index])
+                data_index += 1
+
+            new_data.append((r, g, b))
+        else:
+            new_data.append(pixel)
+
+    img.putdata(new_data)
+    img.save(output_image_path)
+    print("Data hidden successfully in", output_image_path)
+
+# Function to retrieve hidden data
+def retrieve_data(image_path):
+    img = Image.open(image_path)
+    img_data = img.getdata()
+    binary_data = ''
+
+    for pixel in img_data:
+        for value in pixel[:3]:
+            binary_data += str(value & 1)
+
+    all_bytes = [binary_data[i:i+8] for i in range(0, len(binary_data), 8)]
+    message = ''
+    for byte in all_bytes:
+        if byte == '11111110':
+            break
+        message += chr(int(byte, 2))
+    return message
+
+# Example usage
+# Upload an image in Colab environment
+from google.colab import files
+uploaded = files.upload()
+
+# Use uploaded image
+image_file = list(uploaded.keys())[0]
+
+# Hide text
+hide_data(image_file, 'This is a secret message', 'stego_image.png')
+
+# Download stego image
+files.download('stego_image.png')
+
+# Retrieve text from stego image
+retrieved_message = retrieve_data('stego_image.png')
+print("Retrieved message:", retrieved_message)

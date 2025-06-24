@@ -1,0 +1,43 @@
+from PIL import Image
+
+# Generate a simple white image
+img = Image.new('RGB', (200, 200), 'white')
+img.save('input_image.png')
+
+# Convert text to binary
+def to_bin(data):
+    return ''.join(format(ord(i), '08b') for i in data) + '11111110'  # end marker
+
+# Hide text in image
+def hide_text(img_path, text, out_path):
+    img = Image.open(img_path)
+    bin_text = to_bin(text)
+    data = iter(img.getdata())
+
+    for i in range(0, len(bin_text), 3):
+        pixels = [value for value in next(data)]
+        for j in range(3):
+            if i + j < len(bin_text):
+                pixels[j] = pixels[j] & ~1 | int(bin_text[i + j])
+        img.putpixel(( (i//3) % img.width, (i//3) // img.width ), tuple(pixels))
+
+    img.save(out_path)
+    print(f"Text hidden in {out_path}")
+
+# Retrieve text
+def retrieve_text(img_path):
+    img = Image.open(img_path)
+    data = iter(img.getdata())
+    bin_text = ''
+
+    for pixel in data:
+        for value in pixel[:3]:
+            bin_text += str(value & 1)
+            if bin_text.endswith('11111110'):
+                chars = [chr(int(bin_text[i:i+8], 2)) for i in range(0, len(bin_text)-8, 8)]
+                return ''.join(chars)
+
+# Example usage
+secret = "Hello GPT!"
+hide_text('input_image.png', secret, 'stego_image.png')
+print("Retrieved text:", retrieve_text('stego_image.png'))
