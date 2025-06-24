@@ -1,0 +1,61 @@
+from PIL import Image
+
+# Create a blank image
+def create_image(path='input.png'):
+    img = Image.new('RGB', (100, 100), 'blue')
+    img.save(path)
+    print(f"Image created: {path}")
+
+# Convert string to binary with delimiter
+def str_to_bin(s):
+    return ''.join(format(ord(c), '08b') for c in s) + '00000000'  # end marker: 0 byte
+
+# Hide text in image
+def hide_text(image_path, message, output_path):
+    img = Image.open(image_path)
+    bin_msg = str_to_bin(message)
+    data = list(img.getdata())
+    
+    new_data = []
+    msg_idx = 0
+    
+    for pixel in data:
+        r, g, b = pixel
+        if msg_idx < len(bin_msg):
+            r = r & ~1 | int(bin_msg[msg_idx])
+            msg_idx += 1
+        if msg_idx < len(bin_msg):
+            g = g & ~1 | int(bin_msg[msg_idx])
+            msg_idx += 1
+        if msg_idx < len(bin_msg):
+            b = b & ~1 | int(bin_msg[msg_idx])
+            msg_idx += 1
+        new_data.append((r, g, b))
+    
+    img.putdata(new_data)
+    img.save(output_path)
+    print(f"Message hidden in: {output_path}")
+
+# Retrieve hidden text
+def retrieve_text(image_path):
+    img = Image.open(image_path)
+    data = list(img.getdata())
+    
+    bin_str = ''
+    for pixel in data:
+        for value in pixel[:3]:
+            bin_str += str(value & 1)
+    
+    chars = [chr(int(bin_str[i:i+8], 2)) for i in range(0, len(bin_str), 8)]
+    msg = ''
+    for c in chars:
+        if c == '\x00':  # end marker
+            break
+        msg += c
+    return msg
+
+# Run the process
+create_image()
+hide_text('input.png', 'Secret123', 'output.png')
+hidden_message = retrieve_text('output.png')
+print("Retrieved message:", hidden_message)
